@@ -1,0 +1,18 @@
+# Habitat stuff
+results/
+src
+
+# GO stuff
+gnife
+
+# Other version control systems
+**/.svn
+**/.hg
+**/CVS
+
+# Jetbrains stuff
+.idea
+
+# Random crap that creeps in
+.DS_Store
+~*
