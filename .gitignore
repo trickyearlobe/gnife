@@ -2,8 +2,15 @@
 results/
 src
 
-# GO stuff
+# binaries
 gnife
+gnife.exe
+binaries/
+
+# Archives
+*.zip
+*.tar.gzip
+*.tgz
 
 # Other version control systems
 **/.svn
