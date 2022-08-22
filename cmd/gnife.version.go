@@ -13,21 +13,37 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package main
+package cmd
 
-import "github.com/trickyearlobe/gnife/cmd"
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+)
 
 // These variables should be injected by the build system
 // using `go build -ldflags -X main.Version="some version" -X main.GitCommit="some commit" -X main.BuiltByName="some name"
-var Build string = "Unknown, try building with make"
-var GitCommit string = "Unknown, try building with make"
-var GitBranch string = "Unknown, try building with make"
-var BuiltByName = "Unknown, try building with make"
+// main.go sets them here before it initialises Cobra
+var Build string
+var GitCommit string
+var GitBranch string
+var BuiltByName string
 
-func main() {
-	cmd.Build = Build
-	cmd.GitCommit = GitCommit
-	cmd.GitBranch = GitBranch
-	cmd.BuiltByName = BuiltByName
-	cmd.Execute()
+var gnifeVersionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "show build and version info",
+	Run: func(cmd *cobra.Command, args []string) {
+		gnifeVersionShow()
+	},
+}
+
+func gnifeVersionShow() {
+	fmt.Printf("Build:      %v\n", Build)
+	fmt.Printf("Git commit: %v\n", GitCommit)
+	fmt.Printf("Git branch: %v\n", GitBranch)
+	fmt.Printf("Built By:   %v\n", BuiltByName)
+}
+
+func init() {
+	gnifeCmd.AddCommand(gnifeVersionCmd)
 }
