@@ -1,25 +1,4 @@
-# Habitat stuff
-results/
-src
-
-# binaries
-gnife
-gnife.exe
-binaries/
-
-# Archives
-*.zip
-*.tar.gzip
-*.tgz
-
-# Other version control systems
-**/.svn
-**/.hg
-**/CVS
-
-# Jetbrains stuff
-.idea
-
-# Random crap that creeps in
-.DS_Store
-~*
+/gnife
+/gnife.exe
+/dist/
+/coverage.out

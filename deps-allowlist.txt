@@ -1,0 +1,9 @@
+# Modules permitted to be compiled into gnife (one module path per line).
+# `make deps-check` resolves every package the binary imports (on the platform
+# with the most, Windows) to its module and fails on anything not listed here.
+# cobra's go.mod also names go-md2man, blackfriday and yaml for its optional
+# doc generator; those are never built or downloaded for gnife.
+github.com/trickyearlobe/gnife
+github.com/spf13/cobra
+github.com/spf13/pflag
+github.com/inconshreveable/mousetrap

@@ -1,107 +1,71 @@
-# GNIFE CLI
+# gnife
 
-Gnife is an after-market command line client for Chef Infra server written in GoLang.
-It's pretty lightweight and fast compared to the official `knife` utility from Progress (formerly Chef or Opscode).
+A fast command line tool for working with one or many Progress Chef Infra
+Server organisations: manipulate every object type, back up and restore whole
+organisations, copy objects — with their dependencies — between
+organisations, and serve a backup as a working Chef Infra Server.
 
-Right now it's a work in progress so:-
+Single static Go binary. One external dependency (cobra).
 
-* it doesn't have much of the functionality of the official client
-* it doesn't have much in the way of error checking implemented yet
-* it is probably full of terribly dangerous bugs
+> Status: implemented and tested against an in-memory Chef server and, read-only,
+> a live one; see [docs/implementation-plan.md](docs/implementation-plan.md)
+> for known limits and what is not yet verified. No release has been tagged.
 
+## Installation
 
-# GNIFE Installation
-
-* You will need a working version of GO installed for your operating system.
-* You will need a working version of GIT configured to be able to access github
-
-First grab the code
-
-```bash
-# Cloning with SSH
-git clone git@github.com:trickyearlobe/gnife.git
-```
-
-```bash
-# Cloning with HTTPS
-git clone https://github.com/trickyearlobe/gnife.git
-```
-
-
-Then build the code
-
-```bash
-cd gnife
-go install
-```
-
-Then make sure that the installed binaries are in your `PATH`. You can check your GOPATH using
-
-```bash
-go env GOPATH
-```
-
-On my Mac I added this line to my .bash_profile in my home directory
-
-```bash
-export PATH="$PATH:$GOPATH/bin"
-```
-
-
-# Configuring
-
-`gnife` uses the standard `~/.chef/credentials` file to define profiles, and uses the `~/.chef/context` file to select which profile is active.
-
-`gnife` completely ignores the older style `client.rb`, `knife.rb` and `config.rb` files.
-
-The credentials file usually looks something like this
-
-```toml
-[richard-prod]
-client_name = "richard"
-client_key = "/Users/richard/.chef/richard.api.chef.io.pem"
-chef_server_url = "https://api.chef.io/organizations/richard-prod"
-ssl_no_verify = false
-cookbook_path = "~/repos/github/trickyearlobe/prod/cookbooks"
-
-[richard-home]
-client_name = "richard"
-client_key = "/Users/richard/.chef/richard.chef.local.pem"
-chef_server_url = "https://chef.local/organizations/richard-test"
-ssl_no_verify = true
-cookbook_path = "~/repos/github/trickyearlobe/test/cookbooks"
-```
-
-See [Setting up Knife - Profiles](https://docs.chef.io/workstation/knife_setup) for more info on using a `credentials` file.
-
-
-# Using
-
-Get a list of things gnife can do
+Download a binary for your platform from the
+[releases page](https://github.com/trickyearlobe/gnife/releases)
+(linux, macOS and Windows; x86_64 and aarch64), or build from source:
 
 ```
-richard@beastie > gnife
-
-An after-market command line client for Chef Infra Server
-
-Usage:
-  gnife [command]
-
-Available Commands:
-  client      Commands for manipulating clients
-  completion  Generate the autocompletion script for the specified shell
-  help        Help about any command
-  node        Commands for manipulating nodes
-  raw         Perform raw API operations
-
-Flags:
-  -h, --help   help for gnife
-
-Use "gnife [command] --help" for more information about a command.
+go install github.com/trickyearlobe/gnife@latest
 ```
 
-Getting a list of nodes
+## Quick start
+
+gnife authenticates with the profiles in your existing `~/.chef/credentials`
+file — no separate setup.
 
 ```
-gnife node list
+gnife profile list                          # profiles found in ~/.chef/credentials
+gnife node list -p prod                     # any command takes --profile
+gnife config set source prod                # stop repeating --from/--to
+gnife config set dest staging
+gnife role copy webserver --deps            # role + nested roles + their cookbooks
+gnife node copy web-01 --deps --dry-run     # show the plan, change nothing
+gnife backup --dir ./prod-backup            # whole org, knife-ec-backup layout
+gnife restore --dir ./prod-backup -p dr     # into whichever org the profile points at
+gnife raw get /nodes                        # anything the API exposes
+gnife serve --dir ./prod-backup             # serve the backup as a Chef server (knife, chef-client work)
 ```
+
+`gnife help` and `gnife <noun> --help` list every command; the full tree is in
+[docs/commands.md](docs/commands.md).
+
+## Documentation
+
+* [Requirements specification.md](Requirements%20specification.md) — what
+  gnife must do.
+* [docs/](docs/README.md) — how it does it: architecture, credentials and
+  config, commands, copying, backup/restore, security, testing, release
+  process.
+
+## Building and releasing
+
+```
+make build          # ./gnife for this machine
+make test
+make bump-patch-push   # tag the next semver version and push it; CI builds the release
+```
+
+Details in [docs/build-and-release.md](docs/build-and-release.md).
+
+## Contributing
+
+PRs are welcome: fork, branch, raise a PR. `make lint test deps-check` must
+pass (`make test-race` too if you have a C toolchain); new external dependencies will not be accepted without a discussion
+first (see [docs/dependencies.md](docs/dependencies.md)).
+
+## License
+
+Apache 2.0 — see [LICENSE](LICENSE).
