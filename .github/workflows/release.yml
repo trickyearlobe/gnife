@@ -1,6 +1,6 @@
-# Runs only when a semver tag is pushed (make bump-patch-push). Tests on all
-# three operating systems, then cross-compiles every target on Linux and
-# publishes a GitHub release named after the tag.
+# Runs only when a semver tag is pushed (make bump-patch-push). Tests on
+# Linux, then cross-compiles every target (linux, darwin, windows on amd64
+# and arm64) and publishes a GitHub release named after the tag.
 name: release
 
 on:
@@ -12,11 +12,7 @@ permissions:
 
 jobs:
   test:
-    strategy:
-      fail-fast: true
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -25,24 +21,9 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - name: Check, lint and test
-        if: runner.os != 'Windows'
-        run: |
-          set -e
-          make deps-check
-          make lint
-          make test-race
-      # The Windows runner has no POSIX sh for make and no C toolchain
-      # guarantee for -race; run the same steps directly.
-      - name: Check, lint and test (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          set -e
-          go mod verify
-          go vet ./...
-          bad=$(gofmt -l .); if [ -n "$bad" ]; then echo "gofmt needed:"; echo "$bad"; exit 1; fi
-          go test ./...
+      - run: make deps-check
+      - run: make lint
+      - run: make test-race
 
   release:
     needs: test

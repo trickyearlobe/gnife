@@ -38,4 +38,5 @@ a live Chef Infra Server 15 organisation.
 
 * Live restore with `--purge` or `--create-org` (clone with and without
   `--overwrite` into a real organisation has been run and verified).
-* The Windows runner steps in the release workflow have not been exercised.
+* Windows binaries are cross-compiled but the test suite has only been run
+  on macOS and Linux.

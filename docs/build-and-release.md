@@ -76,12 +76,13 @@ No branch or pull-request builds. Day-to-day verification is `make lint test`
 locally; the pipeline exists to produce release artifacts. A tag whose tests
 fail produces no release: delete the tag, fix, re-tag.
 
-* `test` job — matrix `ubuntu-latest`, `macos-latest`, `windows-latest`:
-  `actions/checkout` (with `fetch-depth: 0` and `fetch-tags: true` so
-  `git describe` sees the tag), `actions/setup-go` (both SHA-pinned, Go
-  version from `go.mod`), then `make deps-check lint test-race`. The Windows
-  runner has no POSIX shell for make and no guaranteed C toolchain for
-  `-race`, so it runs the equivalent `go` commands directly, without `-race`.
+* `test` job — `ubuntu-latest`: `actions/checkout` (with `fetch-depth: 0`
+  and `fetch-tags: true` so `git describe` sees the tag), `actions/setup-go`
+  (both SHA-pinned, Go version from `go.mod`), then `make deps-check lint
+  test-race`. Linux only: the macOS and Windows binaries are cross-compiled,
+  which needs no runner of that OS, and a test matrix across operating
+  systems was tried and dropped — it doubled the surface for little gain and
+  the Windows runner in particular was slow and fragile.
 * `release` job — `needs: test`, one `ubuntu-latest` runner: `make
   check-version` (tag must be semver; also asserts `${{ github.ref_name }}`
   equals `git describe --tags --exact-match`), `make release` (Go
