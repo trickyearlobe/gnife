@@ -2,9 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"sort"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -106,9 +104,7 @@ Examples:
 func keyArgs(n int) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {
 		if len(args) != n {
-			cmd.SetOut(os.Stderr)
-			_ = cmd.Help()
-			return usageErr("%s wants %s", cmd.CommandPath(), strings.TrimPrefix(cmd.Use, cmd.Name()+" "))
+			return fmt.Errorf("accepts %d arg(s), received %d", n, len(args))
 		}
 		if _, ok := config.Keys[args[0]]; !ok {
 			return usageErr("unknown config key '%s' (known: %s)", args[0], config.KeyList())

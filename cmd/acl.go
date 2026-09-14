@@ -47,6 +47,7 @@ func newACLCmd(a *app) *cobra.Command {
 		Use:     "show KIND [NAME]",
 		Aliases: []string{"get"},
 		Short:   "Show an ACL",
+		Long:    "Show the ACL of an object. KIND is one of: " + aclKindNames() + ".\nNAME is required for every kind but organization.\n\n  gnife acl show node web-01\n  gnife acl show organization",
 		Args:    cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cl, err := a.orgClient()
@@ -68,6 +69,7 @@ func newACLCmd(a *app) *cobra.Command {
 	update := &cobra.Command{
 		Use:   "update KIND [NAME] -f FILE",
 		Short: "Replace an ACL from JSON (the output shape of acl show)",
+		Long:  "Replace the ACL of an object from JSON in the shape acl show prints. KIND is one of: " + aclKindNames() + ".",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cl, err := a.orgClient()

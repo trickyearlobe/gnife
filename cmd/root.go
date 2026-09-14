@@ -33,18 +33,26 @@ func Execute(build BuildInfo) int {
 	a := &app{build: build}
 	root := newRootCmd(a)
 	root.SetContext(ctx)
-	err := root.Execute()
+	cmd, err := root.ExecuteC()
 	if err == nil {
 		return cli.ExitOK
 	}
 	if isCobraUsageError(err) {
 		// cobra's parse errors: exit 2, one line, quoted like the rest of gnife.
 		msg := strings.ReplaceAll(err.Error(), `"`, "'")
-		if i := strings.Index(msg, "\n\nDid you mean this?\n"); i >= 0 {
+		switch {
+		case strings.Contains(msg, "\n\nDid you mean this?\n"):
+			i := strings.Index(msg, "\n\nDid you mean this?\n")
 			suggestions := strings.Fields(msg[i+len("\n\nDid you mean this?\n"):])
 			msg = msg[:i] + " (did you mean: " + strings.Join(suggestions, ", ") + "?)"
-		} else if strings.HasPrefix(msg, "unknown command") {
+		case strings.HasPrefix(msg, "unknown command"):
 			msg += " (run 'gnife help')"
+		case cmd != nil && cmd != root:
+			// Wrong arguments or flags for a known command: show its help
+			// and say what it wanted, not just how many.
+			cmd.SetOut(os.Stderr)
+			_ = cmd.Help()
+			msg = "usage: " + strings.TrimSuffix(cmd.UseLine(), " [flags]") + " (" + msg + ")"
 		}
 		err = cli.Usage(errors.New(msg))
 	}
