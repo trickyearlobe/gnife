@@ -119,6 +119,24 @@ Exit codes: 0 ok, 1 error, 2 usage, 3 partial (some items failed).`,
 		newCloneCmd(a),
 		newServeCmd(a),
 	)
+	// Parent commands (nouns) take no arguments of their own; without this
+	// cobra treats "gnife node wibble" as "gnife node" and exits 0.
+	var strict func(c *cobra.Command)
+	strict = func(c *cobra.Command) {
+		if c.RunE == nil && c.Run == nil && c.HasSubCommands() && c != root {
+			parent := c
+			parent.RunE = func(cmd *cobra.Command, args []string) error {
+				if len(args) > 0 {
+					return fmt.Errorf("unknown command %q for %q", args[0], parent.CommandPath())
+				}
+				return cmd.Help()
+			}
+		}
+		for _, sub := range c.Commands() {
+			strict(sub)
+		}
+	}
+	strict(root)
 	return root
 }
 

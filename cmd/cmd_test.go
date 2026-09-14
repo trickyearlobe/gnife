@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -319,5 +320,51 @@ func TestCloneInUse(t *testing.T) {
 	}
 	if string(o.DataBags["secrets"]["db"]) == "" {
 		t.Fatal("data bag not cloned")
+	}
+}
+
+func TestEditCommandsUseEditor(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("editor script is a shell script")
+	}
+	h := newHarness(t)
+	h.run("config", "set", "profile", "src")
+	// An "editor" that rewrites the file with sed.
+	dir := t.TempDir()
+	editor := filepath.Join(dir, "editor.sh")
+	os.WriteFile(editor, []byte("#!/bin/sh\nsed -i.bak \"$EDIT_EXPR\" \"$1\"\n"), 0o755)
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", editor)
+
+	t.Setenv("EDIT_EXPR", `s/"ops"/"ops", "admins"/`)
+	out, _, code := h.run("acl", "edit", "node", "web-01")
+	if code != 0 || !strings.Contains(out, `"updated"`) {
+		t.Fatalf("acl edit: %q %d", out, code)
+	}
+	if got := h.s.Orgs["src"].ACLs["nodes/web-01"]["read"].Groups; len(got) != 3 {
+		t.Fatalf("acl not updated: %v", got)
+	}
+
+	t.Setenv("EDIT_EXPR", `s/"prod"/"staging"/`)
+	if out, _, code := h.run("node", "edit", "web-01"); code != 0 {
+		t.Fatalf("node edit: %q %d", out, code)
+	}
+	if !strings.Contains(string(h.s.Orgs["src"].Nodes["web-01"]), `"staging"`) {
+		t.Fatal("node not updated")
+	}
+
+	// No change: nothing written, no error.
+	t.Setenv("EDIT_EXPR", `s/nothing-here/x/`)
+	if _, _, code := h.run("role", "edit", "web"); code != 0 {
+		t.Fatal("unchanged edit should succeed")
+	}
+	// Invalid JSON after editing: refused.
+	t.Setenv("EDIT_EXPR", `s/{/{{/`)
+	if _, _, code := h.run("role", "edit", "web"); code == 0 {
+		t.Fatal("broken JSON must be rejected")
+	}
+	// No edit on name-only kinds.
+	if _, _, code := h.run("databag", "edit", "secrets"); code == 0 {
+		t.Fatal("databag edit should not exist")
 	}
 }

@@ -95,6 +95,8 @@ func kindCmd(a *app, k *kinds.Kind, short string) *cobra.Command {
 		},
 	})
 
+	// Data bags and containers are name-only; nothing to update or edit.
+	editable := k.Put != nil && k != kinds.DataBag && k != kinds.Container
 	if k.Put != nil {
 		var file string
 		create := &cobra.Command{
@@ -123,6 +125,8 @@ func kindCmd(a *app, k *kinds.Kind, short string) *cobra.Command {
 		create.Flags().StringVarP(&file, "file", "f", "", "JSON file, or - for stdin")
 		c.AddCommand(create)
 
+	}
+	if editable {
 		var ufile string
 		update := &cobra.Command{
 			Use:   "update " + nameUse + " -f FILE",

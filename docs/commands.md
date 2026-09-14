@@ -31,7 +31,7 @@ gnife user        list|show|create|update|delete|copy                           
 gnife user key    list|show|add|delete
 gnife group       list|show|create|update|delete|copy | add G MEMBER... | remove G MEMBER...
 gnife container   list|show|create|delete
-gnife acl         show KIND [NAME] | update KIND [NAME] -f | copy KIND [NAME]     # KIND organization needs no name
+gnife acl         show KIND [NAME] | update KIND [NAME] -f | edit KIND [NAME] | copy KIND [NAME]   # KIND organization needs no name
 gnife org         list|show|create [NAME] [--full-name N] [--validator-keyfile F (default ~/.chef/NAME-validator.pem)]|update|delete | member {list ORG | add ORG USER | remove ORG USER}   # pivotal; create prompts for what is missing
 ```
 

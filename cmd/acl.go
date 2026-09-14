@@ -97,6 +97,47 @@ func newACLCmd(a *app) *cobra.Command {
 	update.Flags().StringVarP(&file, "file", "f", "", "ACL JSON, or - for stdin")
 	c.AddCommand(update)
 
+	c.AddCommand(&cobra.Command{
+		Use:   "edit KIND [NAME]",
+		Short: "Edit an ACL in $EDITOR",
+		Long:  "Open the ACL of an object in $VISUAL/$EDITOR and write it back if it changed. KIND is one of: " + aclKindNames() + ".",
+		Args:  cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := a.orgClient()
+			if err != nil {
+				return err
+			}
+			_, _, path, err := aclTarget(cl, args)
+			if err != nil {
+				return err
+			}
+			current, err := acl.Get(cmd.Context(), cl, path)
+			if err != nil {
+				return err
+			}
+			body, err := json.Marshal(current)
+			if err != nil {
+				return err
+			}
+			edited, changed, err := editInEditor(body)
+			if err != nil {
+				return err
+			}
+			if !changed {
+				a.progressf("acl %s unchanged", strings.Join(args, " "))
+				return nil
+			}
+			var next acl.ACL
+			if err := json.Unmarshal(edited, &next); err != nil {
+				return fmt.Errorf("parsing edited ACL: %w", err)
+			}
+			if err := acl.Put(cmd.Context(), cl, path, next); err != nil {
+				return err
+			}
+			return cli.PrintJSON(a.stdout(), map[string]string{"updated": strings.Join(args, " ")})
+		},
+	})
+
 	var f copyFlags
 	cp := &cobra.Command{
 		Use:   "copy KIND [NAME]",
