@@ -147,6 +147,21 @@ func (d *DirStore) DeleteUser(name string) error {
 	return err
 }
 
+func (d *DirStore) PutKeys(org string, k *kinds.Kind, name string, keys []kinds.Key) error {
+	p, err := backup.KeysPath(d.Root, d.orgDir(org), k, name)
+	if err != nil {
+		return err
+	}
+	if len(keys) == 0 {
+		err := os.Remove(p)
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	return backup.WriteJSON(p, kinds.KeysJSON(keys))
+}
+
 func (d *DirStore) PutOrg(name, fullName string, members []string) error {
 	if err := backup.SafeName(name); err != nil {
 		return err
@@ -210,8 +225,23 @@ func (d *DirStore) Load(s *chefserver.Server) error {
 			_ = json.Unmarshal(raw, &acl)
 		}
 		s.SetUser(name, body, acl)
+		if keys, err := readKeys(filepath.Join(d.Root, "user_keys", e.Name())); err == nil && keys != nil {
+			s.SetKeys("", kinds.User, name, keys)
+		}
 	}
 	return nil
+}
+
+func readKeys(path string) ([]kinds.Key, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var keys []kinds.Key
+	if err := json.Unmarshal(raw, &keys); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return keys, nil
 }
 
 func jsonName(e fs.DirEntry) (string, bool) {
@@ -277,6 +307,13 @@ func (d *DirStore) loadOrg(s *chefserver.Server, org string) error {
 		}
 		if err := s.SetObject(org, it.Kind, it.ID, body); err != nil {
 			return err
+		}
+		if it.Kind == kinds.Client {
+			if p, err := backup.KeysPath(d.Root, dir, kinds.Client, it.ID.Name); err == nil {
+				if keys, err := readKeys(p); err == nil && keys != nil {
+					s.SetKeys(org, kinds.Client, it.ID.Name, keys)
+				}
+			}
 		}
 	}
 	acls, err := src.ACLItems()

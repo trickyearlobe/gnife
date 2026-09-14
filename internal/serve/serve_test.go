@@ -245,3 +245,52 @@ func TestSigningProtocol11(t *testing.T) {
 	}
 	_ = kinds.Node
 }
+
+func TestExtraKeysSurviveRestart(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.Background()
+	s, ts := start(t, dir)
+	priv, _ := s.GeneratePivotal()
+	pivotal := client(t, ts, "", "pivotal", append([]byte(nil), priv...))
+	if err := pivotal.Post(ctx, "/organizations", map[string]string{"name": "o"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	var reg struct {
+		ChefKey struct {
+			PrivateKey string `json:"private_key"`
+			PublicKey  string `json:"public_key"`
+		} `json:"chef_key"`
+	}
+	if err := pivotal.Post(ctx, "/organizations/o/clients", map[string]any{"name": "c1", "create_key": true}, &reg); err != nil {
+		t.Fatal(err)
+	}
+	var added struct {
+		PrivateKey string `json:"private_key"`
+	}
+	if err := pivotal.Post(ctx, "/organizations/o/clients/c1/keys", map[string]any{"name": "second", "create_key": true}, &added); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "organizations", "o", "client_keys", "c1.json")); err != nil {
+		t.Fatal("sidecar not written")
+	}
+	ts.Close()
+	s2, ts2 := start(t, dir)
+	if len(s2.Orgs["o"].ClientKeys["c1"]) != 2 {
+		t.Fatalf("keys after restart: %v", s2.Orgs["o"].ClientKeys["c1"])
+	}
+	// Both private keys authenticate.
+	for _, k := range []string{reg.ChefKey.PrivateKey, added.PrivateKey} {
+		c := client(t, ts2, "o", "c1", []byte(k))
+		if err := c.Get(ctx, c.OrgPath("/nodes"), nil); err != nil {
+			t.Fatalf("key rejected after restart: %v", err)
+		}
+	}
+	// Deleting the extra key removes the sidecar.
+	c := client(t, ts2, "o", "c1", []byte(reg.ChefKey.PrivateKey))
+	if err := c.Delete(ctx, c.OrgPath("/clients/c1/keys/second"), nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "organizations", "o", "client_keys", "c1.json")); err == nil {
+		t.Fatal("sidecar should be removed when only the default key remains")
+	}
+}

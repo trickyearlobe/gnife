@@ -58,6 +58,25 @@ func (d *DirSource) Cookbook(ctx context.Context, k *kinds.Kind, id kinds.ID) (*
 	}, nil
 }
 
+func (d *DirSource) Keys(ctx context.Context, k *kinds.Kind, name string) ([]kinds.Key, error) {
+	p, err := KeysPath(filepath.Dir(filepath.Dir(d.OrgDir)), d.OrgDir, k, name)
+	if err != nil {
+		return nil, err
+	}
+	body, err := readJSON(p)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var keys []kinds.Key
+	if err := json.Unmarshal(body, &keys); err != nil {
+		return nil, fmt.Errorf("%s: %w", p, err)
+	}
+	return keys, nil
+}
+
 func (d *DirSource) ACL(ctx context.Context, k *kinds.Kind, name string) (acl.ACL, error) {
 	p, err := ACLPath(d.OrgDir, k, name)
 	if err != nil {

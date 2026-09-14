@@ -297,3 +297,37 @@ func TestBackupInUse(t *testing.T) {
 		t.Fatalf("counts: %v", counts.Objects)
 	}
 }
+
+func TestExtraClientKeysRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	s := chefserver.New()
+	defer s.Close()
+	s.Seed("src")
+	src := superClient(t, s, "src")
+	// web-01 gets a second key; tester keeps just its default.
+	rotated := s.AddClient("src", "web-01", false) // replaces default key
+	_ = rotated
+	if err := src.Post(ctx, src.OrgPath("/clients/web-01/keys"), map[string]any{"name": "rotated", "public_key": s.Orgs["src"].ClientKeys["web-01"]["default"], "expiration_date": "infinity"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	if _, err := Backup(ctx, src, root, Options{Workers: 2, SkipUsers: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "organizations", "src", "client_keys", "web-01.json")); err != nil {
+		t.Fatal("sidecar for the two-key client missing")
+	}
+	if _, err := os.Stat(filepath.Join(root, "organizations", "src", "client_keys", "backup-client.json")); err == nil {
+		t.Fatal("single-key client must not get a sidecar")
+	}
+	// Restore elsewhere: both keys present.
+	s.AddOrg("dst")
+	dst := orgClient(t, s, "dst")
+	res, err := Restore(ctx, dst, root, RestoreOptions{Options: Options{Workers: 2, SkipUsers: true}, OrgDir: "src"})
+	if err != nil || res.Err() != nil {
+		t.Fatalf("restore: %v %v", err, res.Err())
+	}
+	if got := s.Orgs["dst"].ClientKeys["web-01"]; len(got) != 2 || got["rotated"] == "" {
+		t.Fatalf("keys after restore: %v", sortedKeys(got))
+	}
+}

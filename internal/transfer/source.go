@@ -27,6 +27,9 @@ type Source interface {
 	Cookbook(ctx context.Context, k *kinds.Kind, id kinds.ID) (*cookbook.Manifest, FileReader, error)
 	// ACL returns an object's ACL; k == nil means the organisation ACL.
 	ACL(ctx context.Context, k *kinds.Kind, name string) (acl.ACL, error)
+	// Keys returns every key of a client or user beyond what its body
+	// carries; nil when there are none.
+	Keys(ctx context.Context, k *kinds.Kind, name string) ([]kinds.Key, error)
 }
 
 // ServerSource reads from a live organisation.
@@ -79,6 +82,14 @@ func (s *ServerSource) Cookbook(ctx context.Context, k *kinds.Kind, id kinds.ID)
 		return data, nil
 	}
 	return m, read, nil
+}
+
+func (s *ServerSource) Keys(ctx context.Context, k *kinds.Kind, name string) ([]kinds.Key, error) {
+	keys, err := kinds.ListKeys(ctx, s.Client, k, name)
+	if err != nil || !kinds.HasExtraKeys(keys) {
+		return nil, err
+	}
+	return keys, nil
 }
 
 func (s *ServerSource) ACL(ctx context.Context, k *kinds.Kind, name string) (acl.ACL, error) {

@@ -169,6 +169,11 @@ func Restore(ctx context.Context, dst *chef.Client, root string, opts RestoreOpt
 				continue
 			}
 			res.Users = append(res.Users, u)
+			if keys, err := src.Keys(ctx, kinds.User, u); err == nil && keys != nil {
+				if err := kinds.PutKeys(ctx, dst, kinds.User, u, keys); err != nil {
+					fail("user keys "+u, err)
+				}
+			}
 			if aclBody, err := readJSON(filepath.Join(root, "user_acls", u+".json")); err == nil && !opts.SkipACLs {
 				var a acl.ACL
 				if json.Unmarshal(aclBody, &a) == nil {

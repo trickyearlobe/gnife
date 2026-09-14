@@ -69,6 +69,18 @@ func ObjectPath(orgDir string, k *kinds.Kind, id kinds.ID) (string, error) {
 	return filepath.Join(orgDir, k.Plural, id.Name+".json"), nil
 }
 
+// KeysPath is the sidecar holding every key of a client (under the
+// organisation) or user (at the root). knife-ec-backup ignores both.
+func KeysPath(root, orgDir string, k *kinds.Kind, name string) (string, error) {
+	if err := SafeName(name); err != nil {
+		return "", err
+	}
+	if k == kinds.User {
+		return filepath.Join(root, "user_keys", name+".json"), nil
+	}
+	return filepath.Join(orgDir, "client_keys", name+".json"), nil
+}
+
 // ACLPath is acls/<plural>/<name>.json, or acls/organization.json for k == nil.
 func ACLPath(orgDir string, k *kinds.Kind, name string) (string, error) {
 	if k == nil {

@@ -166,6 +166,9 @@ func Backup(ctx context.Context, c *chef.Client, root string, opts Options) (*Co
 				if err := WriteJSON(filepath.Join(root, "users", id.Name+".json"), body); err != nil {
 					return err
 				}
+				if err := writeKeySidecar(ctx, c, root, orgDir, kinds.User, id.Name); err != nil {
+					return err
+				}
 				if opts.SkipACLs {
 					return nil
 				}
@@ -281,7 +284,13 @@ func writeObjects(ctx context.Context, c *chef.Client, orgDir string, items []tr
 			if err != nil {
 				return err
 			}
-			return WriteJSON(p, body)
+			if err := WriteJSON(p, body); err != nil {
+				return err
+			}
+			if k == kinds.Client {
+				return writeKeySidecar(ctx, c, filepath.Dir(filepath.Dir(orgDir)), orgDir, k, it.ID.Name)
+			}
+			return nil
 		})
 		for _, e := range errs {
 			res.Failed = append(res.Failed, cli.ItemError{Item: k.Name + " " + e.Item, Err: e.Err})
@@ -326,4 +335,25 @@ func writeACLs(ctx context.Context, c *chef.Client, orgDir string, acls []transf
 		opts.Warn("%d ACLs not readable by this profile were skipped (a pivotal profile can read them all)", len(res.ACLsSkipped))
 	}
 	res.ACLs = len(acls) - len(errs)
+}
+
+// writeKeySidecar records every key of a client or user that has more
+// than the default one (the only key the compatible layout carries).
+func writeKeySidecar(ctx context.Context, c *chef.Client, root, orgDir string, k *kinds.Kind, name string) error {
+	keys, err := kinds.ListKeys(ctx, c, k, name)
+	if err != nil {
+		if chef.IsNotPermitted(err) || chef.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("keys: %w", err)
+	}
+	p, err := KeysPath(root, orgDir, k, name)
+	if err != nil {
+		return err
+	}
+	if !kinds.HasExtraKeys(keys) {
+		_ = os.Remove(p)
+		return nil
+	}
+	return WriteJSON(p, kinds.KeysJSON(keys))
 }

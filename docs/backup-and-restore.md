@@ -25,8 +25,20 @@ DIR/
     acls/<plural>/<n>.json           actors/users/clients/groups per permission
 ```
 
-gnife adds one file, `organizations/<org>/.gnife.json` (tool version, server
-URL, API version, timestamp). knife ec restore ignores dotfiles.
+gnife adds a marker, `organizations/<org>/.gnife.json` (tool version, server
+URL, API version, timestamp), and — only for clients or users holding more
+than the default key — a sidecar with every key:
+
+```
+  organizations/<org>/client_keys/<client>.json
+  user_keys/<user>.json
+```
+
+The compatible layout carries one `public_key` per client, so without the
+sidecar a rotated key would be lost. knife ec restore only walks the
+directories it knows and ignores both additions; gnife's restore, copy and
+`serve` use them. They sit outside `clients/` deliberately: chef_fs would
+otherwise upload `dev.json`'s neighbour as a client called `dev.keys`.
 
 `--archive` additionally writes `DIR.tar.gz` (`archive/tar` +
 `compress/gzip`); `restore --dir` accepts either a directory or an archive.

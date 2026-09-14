@@ -244,6 +244,15 @@ func execItem(ctx context.Context, src Source, dst *chef.Client, it Item, opts E
 	if err := k.Put(ctx, dst, it.ID, body, exists); err != nil {
 		return err
 	}
+	if k == kinds.Client || k == kinds.User {
+		keys, err := src.Keys(ctx, k, it.ID.Name)
+		if err != nil {
+			return fmt.Errorf("keys: %w", err)
+		}
+		if err := kinds.PutKeys(ctx, dst, k, it.ID.Name, keys); err != nil {
+			return fmt.Errorf("keys: %w", err)
+		}
+	}
 	res.written(name)
 	return nil
 }

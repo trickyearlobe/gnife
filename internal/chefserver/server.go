@@ -84,6 +84,9 @@ type Store interface {
 	PutACL(org, key string, acl map[string]Perm) error
 	PutUser(name string, body json.RawMessage, acl map[string]Perm) error
 	DeleteUser(name string) error
+	// PutKeys records every key of a client or user; an empty list means
+	// "only the default key in the body".
+	PutKeys(org string, k *kinds.Kind, name string, keys []kinds.Key) error
 	PutOrg(name, fullName string, members []string) error
 	DeleteOrg(name string) error
 }
@@ -278,6 +281,33 @@ func (s *Server) SetCookbook(org string, k *kinds.Kind, id kinds.ID, manifest js
 	}
 }
 
+// SetKeys replaces every key of a client or user without persisting.
+func (s *Server) SetKeys(org string, k *kinds.Kind, name string, keys []kinds.Key) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if k == kinds.User {
+		u, ok := s.Users[name]
+		if !ok {
+			return
+		}
+		u.Keys = map[string]string{}
+		for _, key := range keys {
+			if key.Name == "default" {
+				u.PublicKey = key.PublicKey
+			} else {
+				u.Keys[key.Name] = key.PublicKey
+			}
+		}
+		return
+	}
+	o := s.newOrg(org, org)
+	m := map[string]string{}
+	for _, key := range keys {
+		m[key.Name] = key.PublicKey
+	}
+	o.ClientKeys[name] = m
+}
+
 // SetACL stores an ACL without persisting; key is "organization" or "<plural>/<name>".
 func (s *Server) SetACL(org, key string, acl map[string]Perm) {
 	s.mu.Lock()
@@ -395,7 +425,28 @@ func (s *Server) persistClient(o *Org, name string) *apiErr {
 		m["public_key"] = pub
 	}
 	body, _ := json.Marshal(m)
-	return s.persistObject(o, kinds.Client, kinds.ID{Name: name}, body)
+	if err := s.persistObject(o, kinds.Client, kinds.ID{Name: name}, body); err != nil {
+		return err
+	}
+	if s.store != nil {
+		if err := s.store.PutKeys(o.Name, kinds.Client, name, keysOf(o.ClientKeys[name])); err != nil {
+			return fail(500, "persisting keys of client %s: %v", name, err)
+		}
+	}
+	return nil
+}
+
+// keysOf turns a name -> PEM map into the sidecar form, or nil when only
+// a default key exists.
+func keysOf(m map[string]string) []kinds.Key {
+	if len(m) == 0 || len(m) == 1 && m["default"] != "" {
+		return nil
+	}
+	var out []kinds.Key
+	for _, n := range sortedKeys(m) {
+		out = append(out, kinds.Key{Name: n, PublicKey: m[n], ExpirationDate: "infinity"})
+	}
+	return out
 }
 
 func (s *Server) persistGroup(o *Org, name string) *apiErr {
@@ -462,6 +513,13 @@ func (s *Server) persistUser(name string) *apiErr {
 	body, _ := json.Marshal(m)
 	if err := s.store.PutUser(name, body, u.ACL); err != nil {
 		return fail(500, "persisting user %s: %v", name, err)
+	}
+	all := map[string]string{"default": u.PublicKey}
+	for n, k := range u.Keys {
+		all[n] = k
+	}
+	if err := s.store.PutKeys("", kinds.User, name, keysOf(all)); err != nil {
+		return fail(500, "persisting keys of user %s: %v", name, err)
 	}
 	return nil
 }
