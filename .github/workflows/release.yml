@@ -41,7 +41,7 @@ jobs:
           set -e
           go mod verify
           go vet ./...
-          test -z "$(gofmt -l .)"
+          bad=$(gofmt -l .); if [ -n "$bad" ]; then echo "gofmt needed:"; echo "$bad"; exit 1; fi
           go test ./...
 
   release:

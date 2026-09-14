@@ -1,0 +1,7 @@
+# Keep LF everywhere: gofmt rejects CRLF, and the Windows runner would
+# otherwise convert on checkout.
+* text=auto eol=lf
+*.go text eol=lf
+*.md text eol=lf
+Makefile text eol=lf
+*.yml text eol=lf
